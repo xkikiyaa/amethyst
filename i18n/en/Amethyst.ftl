@@ -58,6 +58,8 @@ success-upgrade-repo-pkgs = Successfully upgraded repo packages
 couldnt-find-remote-pkg = Could not find the remote package for {$pkg}
 no-upgrades-aur-package = No upgrades available for installed AUR packages
 scanning-for-pacnew = Scanning for .pacnew files post-upgrade
+aur-check-upgrades = Checking for AUR package upgrades
+select-pkgs-upgrade = Select which AUR packages to upgrade
 
 # logging::output
 repo-dependencies = Repo dependencies
@@ -121,6 +123,7 @@ aur-rpc-crash = AUR RPC Call failed with: {$error}
 failed-to-build = Failed to build
 makepkg-failed = makepkg failed
 unknown-error = Unknown error
+package-does-not-exist = Package {$package} does not exist, skipping...
 
 # internal::error
 non-zero-exit = Exited with non zero code
@@ -149,7 +152,7 @@ config-docs = # See https://getcryst.al/docs/amethyst/config for more informatio
 
 # internal::paging
 quit = quit
-search = search
+search-paging = search
 next-result = next result
 previous-result = previous result
 
@@ -166,6 +169,7 @@ query = Queries installed packages
 upgrade = Upgrades locally installed packages to their latest versions (Default)
 gencomp = Generates shell completions for supported shells (bash, fish, elvish, pwsh)
 clean = Removes all orphaned packages
+checkupdates = Queries for and returns available package updates
 diff = Runs pacdiff
 install-packages = The name of the package(s) to install or search for
 install-aur = Operate only on AUR packages
@@ -175,6 +179,7 @@ install-by = Searches by a specific field
 remove-packages = The name of the package(s) to remove
 query-aur = Lists AUR/foreign packages [-Qa, -Qm]
 query-repo = Lists repo/native packages [-Qr, -Qn]
+query-explicit = Lists explicitly installed packages [-Qe]
 query-info = Get information about a specific package
 query-owns = Get information about which package owns a file
 upgrade-repo = Upgrades only repo/native packages

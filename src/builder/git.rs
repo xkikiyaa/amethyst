@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
-use crate::internal::{
-    commands::ShellCommand,
+use crate::{
     error::{AppError, AppResult},
+    internal::commands::ShellCommand,
 };
 
 #[derive(Debug, Default)]
@@ -57,6 +57,36 @@ impl GitPullBuilder {
             .arg("-C")
             .arg(self.directory)
             .arg("pull")
+            .wait_with_output()
+            .await?;
+
+        if result.status.success() {
+            Ok(())
+        } else {
+            Err(AppError::Other(result.stderr))
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct GitResetBuilder {
+    directory: PathBuf,
+}
+
+impl GitResetBuilder {
+    pub fn directory<P: AsRef<Path>>(mut self, path: P) -> Self {
+        self.directory = path.as_ref().into();
+
+        self
+    }
+
+    pub async fn reset(self) -> AppResult<()> {
+        let result = ShellCommand::git()
+            .arg("-C")
+            .arg(self.directory)
+            .arg("reset")
+            .arg("HEAD")
+            .arg("--hard")
             .wait_with_output()
             .await?;
 

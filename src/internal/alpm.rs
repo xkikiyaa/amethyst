@@ -23,6 +23,8 @@ impl Display for Error {
     }
 }
 
+impl std::error::Error for Error {}
+
 impl From<alpm::Error> for Error {
     fn from(err: alpm::Error) -> Self {
         Error::Alpm(err)
@@ -46,7 +48,7 @@ pub enum PackageFrom {
 }
 
 pub enum AlpmPackage<'a> {
-    Found(alpm::Package<'a>),
+    Found(&'a alpm::Package),
     Loaded(alpm::LoadedPackage<'a>),
 }
 
@@ -96,5 +98,20 @@ impl Alpm {
 
     pub fn handler(&self) -> &alpm::Alpm {
         &self.0
+    }
+
+    pub fn group_packages(&self, group_name: String) -> Result<Vec<AlpmPackage>, Error> {
+        let mut packages = Vec::new();
+        for db in self.0.syncdbs() {
+            if let Ok(group) = db.group(group_name.clone()) {
+                for package in group.packages() {
+                    packages.push(AlpmPackage::Found(package));
+                }
+            }
+        }
+        if packages.is_empty() {
+            return Err(Error::Alpm(alpm::Error::PkgNotFound));
+        }
+        Ok(packages)
     }
 }

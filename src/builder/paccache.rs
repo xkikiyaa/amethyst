@@ -1,4 +1,5 @@
-use crate::internal::{commands::ShellCommand, error::AppResult};
+use crate::error::AppResult;
+use crate::internal::commands::ShellCommand;
 
 #[derive(Debug, Default)]
 pub struct PaccacheBuilder {
@@ -39,7 +40,7 @@ impl PaccacheBuilder {
         }
 
         command
-            .args(&["-r", &format!("-k{}", self.keep)])
+            .args(["-r", &format!("-k{}", self.keep)])
             .wait_success()
             .await
     }

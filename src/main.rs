@@ -3,10 +3,10 @@ use builder::pacman::{PacmanColor, PacmanQueryBuilder};
 use clap::Parser;
 
 use internal::commands::ShellCommand;
-use internal::detect;
-use internal::error::SilentUnwrap;
+use internal::{detect, utils};
 
 use crate::args::{InstallArgs, Operation, QueryArgs, RemoveArgs};
+use crate::error::SilentUnwrap;
 use crate::interact::page_string;
 use crate::internal::config::Config;
 use crate::internal::exit_code::AppExitCode;
@@ -17,20 +17,23 @@ use crate::logging::Printable;
 use clap_complete::Shell;
 use clap_complete_fig::Fig;
 
+use alpm::vercmp;
 use std::str::FromStr;
 
 mod args;
 mod builder;
+mod error;
 mod interact;
 mod internal;
 mod logging;
 mod operations;
+use crate::internal::rpc::rpcinfo;
 use logging::init_logger;
 
 #[tokio::main]
 async fn main() {
     color_eyre::install().unwrap();
-    if unsafe { libc::geteuid() } == 0 {
+    if utils::is_run_with_root() {
         fl_crash!(AppExitCode::RunAsRoot, "run-as-root");
     }
 
@@ -71,6 +74,7 @@ async fn main() {
             fl_info!("removing-orphans");
             operations::clean(options).await;
         }
+        Operation::CheckUpdates => cmd_checkupdates().await,
         Operation::GenComp(gen_args) => cmd_gencomp(&gen_args),
         Operation::Diff => detect().await,
     }
@@ -172,7 +176,7 @@ async fn cmd_search(args: InstallArgs, options: Options) {
         get_logger().print_list(&list, "\n", 0);
 
         if list.join("\n").lines().count() > crossterm::terminal::size().unwrap().1 as usize {
-            page_string(&list.join("\n")).silent_unwrap(AppExitCode::Other);
+            page_string(list.join("\n")).silent_unwrap(AppExitCode::Other);
         }
     }
 }
@@ -185,6 +189,7 @@ async fn cmd_query(args: QueryArgs) {
         fl_info!("installed-repo-packages");
         PacmanQueryBuilder::native()
             .color(PacmanColor::Always)
+            .explicit(args.explicit)
             .query()
             .await
             .silent_unwrap(AppExitCode::PacmanError);
@@ -194,6 +199,7 @@ async fn cmd_query(args: QueryArgs) {
         fl_info!("installed-aur-packages");
         PacmanQueryBuilder::foreign()
             .color(PacmanColor::Always)
+            .explicit(args.explicit)
             .query()
             .await
             .silent_unwrap(AppExitCode::PacmanError);
@@ -203,6 +209,7 @@ async fn cmd_query(args: QueryArgs) {
         fl_info!("installed-packages");
         PacmanQueryBuilder::all()
             .color(PacmanColor::Always)
+            .explicit(args.explicit)
             .query()
             .await
             .silent_unwrap(AppExitCode::PacmanError);
@@ -211,6 +218,7 @@ async fn cmd_query(args: QueryArgs) {
     if let Some(info) = args.info {
         PacmanQueryBuilder::info()
             .package(info)
+            .explicit(args.explicit)
             .query()
             .await
             .silent_unwrap(AppExitCode::PacmanError);
@@ -223,6 +231,41 @@ async fn cmd_query(args: QueryArgs) {
             .await;
         if result.is_err() {
             fl_crash!(AppExitCode::PacmanError, "error-occurred");
+        }
+    }
+}
+
+#[tracing::instrument(level = "trace")]
+async fn cmd_checkupdates() {
+    // TODO: Implement AUR update checking, which would then respectively display in crystal-update
+    print!(
+        "{}",
+        ShellCommand::checkupdates()
+            .wait_with_output()
+            .await
+            .silent_unwrap(AppExitCode::Other)
+            .stdout
+    );
+    let non_native_pkgs = PacmanQueryBuilder::foreign()
+        .color(PacmanColor::Never)
+        .query_with_output()
+        .await
+        .silent_unwrap(AppExitCode::PacmanError);
+
+    tracing::debug!("aur packages: {non_native_pkgs:?}");
+
+    for pkg in non_native_pkgs {
+        let remote_package = rpcinfo(&pkg.name)
+            .await
+            .silent_unwrap(AppExitCode::RpcError);
+
+        if let Some(remote_package) = remote_package {
+            if vercmp(remote_package.metadata.version.clone(), pkg.version.clone()).is_gt() {
+                println!(
+                    "{} {} -> {}",
+                    pkg.name, pkg.version, remote_package.metadata.version
+                )
+            }
         }
     }
 }

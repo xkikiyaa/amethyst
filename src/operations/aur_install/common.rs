@@ -16,6 +16,11 @@ use tokio::{
 };
 
 use crate::{
+    builder::git::GitResetBuilder,
+    error::{AppError, AppResult},
+    fl_warn,
+};
+use crate::{
     builder::{
         git::{GitCloneBuilder, GitPullBuilder},
         makepkg::MakePkgBuilder,
@@ -25,7 +30,6 @@ use crate::{
     crash, fl, fl_info,
     internal::{
         alpm::{Alpm, PackageFrom},
-        error::{AppError, AppResult},
         exit_code::AppExitCode,
         utils::{get_cache_dir, wrap_text},
     },
@@ -48,7 +52,7 @@ pub async fn download_aur_source(mut ctx: BuildContext) -> AppResult<BuildContex
     );
 
     let cache_dir = get_cache_dir();
-    let pkg_dir = cache_dir.join(&pkg_name);
+    let pkg_dir = cache_dir.join(pkg_name);
 
     if pkg_dir.exists() {
         pb.set_message(format!(
@@ -56,6 +60,10 @@ pub async fn download_aur_source(mut ctx: BuildContext) -> AppResult<BuildContex
             pkg_name.clone().bold(),
             fl!("pulling-latest-changes")
         ));
+        GitResetBuilder::default()
+            .directory(&pkg_dir)
+            .reset()
+            .await?;
         GitPullBuilder::default().directory(&pkg_dir).pull().await?;
     } else {
         let aur_url = crate::internal::rpc::URL;
@@ -146,7 +154,7 @@ pub fn create_dependency_batches(deps: Vec<&PackageInfo>) -> Vec<Vec<&PackageInf
             relaxed = true;
         } else {
             tracing::debug!("Created batch {current_batch:?}");
-            batches.push(current_batch.into_iter().map(|(_, v)| v).collect());
+            batches.push(current_batch.into_values().collect());
             relaxed = false;
         }
     }
@@ -238,6 +246,21 @@ async fn build_package(
     let alpm = Alpm::new()?;
 
     for archive in archives {
+        if !archive.try_exists()? {
+            if archive
+                .file_name()
+                .is_some_and(|f| f.to_str().is_some_and(|f| f.contains("debug")))
+            {
+                tracing::debug!("Pacakge {archive:?} does not exist, skipping...");
+            } else {
+                fl_warn!(
+                    "package-does-not-exist",
+                    package = archive.display().to_string()
+                );
+            }
+            continue;
+        }
+
         let pkg = alpm.load(PackageFrom::File(archive.clone()))?;
         let name = pkg.name().to_owned();
         pkgs_produced.insert(name, archive);
@@ -287,6 +310,7 @@ async fn show_and_log_stdio(
     let mut out_writer = BufWriter::new(
         OpenOptions::new()
             .create(true)
+            .truncate(true)
             .write(true)
             .open(out_file)
             .await?,
@@ -294,7 +318,7 @@ async fn show_and_log_stdio(
 
     while let Ok(line) = reader.read_line().await {
         let _ = out_writer.write(line.as_bytes()).await?;
-        let _ = out_writer.write(&[b'\n']).await?;
+        let _ = out_writer.write(b"\n").await?;
         tracing::trace!("{package_name}: {line}");
         let line = format!("{}: {}", package_name.clone().bold(), line);
         let lines = wrap_text(line, 2);

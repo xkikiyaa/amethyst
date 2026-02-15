@@ -1,5 +1,4 @@
 pub use clean::*;
-pub use clean::*;
 pub use detect::*;
 pub use sort::*;
 pub use sudoloop::*;
@@ -9,7 +8,6 @@ pub mod commands;
 pub mod config;
 pub mod dependencies;
 mod detect;
-pub mod error;
 pub mod exit_code;
 pub mod rpc;
 mod sort;
@@ -23,28 +21,21 @@ mod sudoloop;
 #[macro_export]
 macro_rules! uwu {
     ($x:expr) => {{
-        let uwu: String = String::from($x);
-
-        let uwu = uwu.replace("l", "w");
-        let uwu = uwu.replace("L", "W");
-        let uwu = uwu.replace("r", "w");
-        let uwu = uwu.replace("R", "W");
-        let uwu = uwu.replace("na", "nya");
-        let uwu = uwu.replace("Na", "Nya");
-        let uwu = uwu.replace("NA", "NYA");
-
-        uwu
+        String::from($x)
+            .replace("l", "w")
+            .replace("L", "W")
+            .replace("r", "w")
+            .replace("R", "W")
+            .replace("na", "nya")
+            .replace("Na", "Nya")
+            .replace("NA", "NYA")
     }};
 }
 
 pub fn uwu_enabled() -> bool {
     let config = config::Config::get();
     if let Some(uwu) = &config.extra {
-        if let Some(uwu) = uwu.uwu {
-            uwu
-        } else {
-            false
-        }
+        uwu.uwu.unwrap_or(false)
     } else {
         false
     }
@@ -53,5 +44,5 @@ pub fn uwu_enabled() -> bool {
 /// Checks if we're running in a tty. If we do we can assume that
 /// the output can safely be colorized.
 pub fn is_tty() -> bool {
-    (unsafe { libc::isatty(libc::STDIN_FILENO as i32) } != 0)
+    (unsafe { libc::isatty(libc::STDIN_FILENO) } != 0)
 }

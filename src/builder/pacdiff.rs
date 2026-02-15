@@ -1,7 +1,5 @@
-use crate::internal::{
-    commands::{ShellCommand, StringOutput},
-    error::{AppError, AppResult},
-};
+use crate::error::{AppError, AppResult};
+use crate::internal::commands::{ShellCommand, StringOutput};
 
 #[derive(Debug, Default)]
 pub struct PacdiffBuilder {}
@@ -10,7 +8,7 @@ impl PacdiffBuilder {
     #[tracing::instrument(level = "trace")]
     pub async fn list() -> AppResult<StringOutput> {
         let result = ShellCommand::pacdiff()
-            .args(&["-o", "-f"])
+            .args(["-o", "-f"])
             .elevated()
             .wait_with_output()
             .await?;
