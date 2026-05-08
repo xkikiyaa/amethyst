@@ -1,5 +1,5 @@
 ```bash
-git clone https://github.com/0xraincandy/amethyst
+git clone https://github.com/xkikiyaa/amethyst
 ```
 
 ```bash
